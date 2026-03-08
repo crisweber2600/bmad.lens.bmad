@@ -1,14 +1,11 @@
 # =============================================================================
-# Promote finalized lens-work source to bmad.lens.release
+# Promote finalized lens-work source to bmad.lens.release + bmad.lens.copilot
 #
 # Workflow:
-#   1. Checkout this repo (bmad.lens.bmad)
-#   2. Validate the source module (declarative-only, required files)
-#   3. Clone bmad.lens.release → checkout alpha
-#   4. Delete existing lens-work contents (_bmad/lens-work/ + .github adapter)
-#   5. Copy finalized output from bmad.lens.src/
-#   6. Commit & push to alpha
-#   7. Open a PR from alpha → beta
+#   Job 1 — promote-release:
+#     Clone bmad.lens.release → alpha, sync module + .github adapter, PR → beta
+#   Job 2 — promote-copilot:
+#     Clone bmad.lens.copilot → alpha, sync .github adapter only, PR → beta
 # =============================================================================
 
 name: Promote to Release
@@ -22,7 +19,7 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  promote:
+  promote-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -186,6 +183,116 @@ jobs:
               echo "✅ PR created: $PR_URL"
             else
               echo "::error::Failed to create PR"
+              echo "$PR_RESPONSE" | jq .
+              exit 1
+            fi
+          fi
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Job 2: Promote .github adapter to bmad.lens.copilot
+  # ═══════════════════════════════════════════════════════════════════════
+  promote-copilot:
+    runs-on: ubuntu-latest
+    needs: promote-release
+
+    steps:
+      # ── 1. Checkout source repo ──────────────────────────────────────
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ── 2. Read module version ───────────────────────────────────────
+      - name: Read module version
+        id: version
+        run: |
+          VERSION=$(grep '^version:' bmad.lens.src/_bmad/lens-work/module.yaml \
+            | sed 's/version: *"\?\([^"]*\)"\?/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Module version: $VERSION"
+
+      # ── 3. Clone copilot repo & checkout alpha ───────────────────────
+      - name: Clone bmad.lens.copilot
+        run: |
+          git clone --branch alpha \
+            "https://x-access-token:${{ secrets.COPILOT_REPO_TOKEN }}@github.com/${{ github.repository_owner }}/bmad.lens.copilot.git" \
+            copilot-repo
+
+      # ── 4. Sync .github adapter layer ────────────────────────────────
+      - name: Sync .github adapter to copilot repo
+        run: |
+          # Sync agent file
+          if [ -d "bmad.lens.src/.github/agents" ]; then
+            mkdir -p copilot-repo/.github/agents/
+            cp -f bmad.lens.src/.github/agents/bmad-agent-lens-work-lens.agent.md \
+              copilot-repo/.github/agents/bmad-agent-lens-work-lens.agent.md
+            echo "✅ Agent adapter synced"
+          fi
+
+          # Sync stub prompts
+          if [ -d "bmad.lens.src/.github/prompts" ]; then
+            mkdir -p copilot-repo/.github/prompts/
+            cp -f bmad.lens.src/.github/prompts/lens-work.*.prompt.md \
+              copilot-repo/.github/prompts/
+            echo "✅ Stub prompts synced"
+          fi
+
+          echo "✅ .github adapter synced to copilot repo (alpha)"
+
+      # ── 5. Commit & push to alpha ────────────────────────────────────
+      - name: Commit and push to alpha
+        working-directory: copilot-repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to promote — skipping"
+            echo "has_changes=false" >> "$GITHUB_ENV"
+          else
+            git commit -m "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — .github adapter synced from source"
+            git push origin alpha
+            echo "has_changes=true" >> "$GITHUB_ENV"
+            echo "✅ Committed and pushed to alpha"
+          fi
+
+      # ── 6. Create PR from alpha → beta ──────────────────────────────
+      - name: Create PR alpha → beta
+        if: env.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_REPO_TOKEN }}
+        run: |
+          OPEN_PRS=$(curl -s \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository_owner }}/bmad.lens.copilot/pulls?head=${{ github.repository_owner }}:alpha&base=beta&state=open")
+
+          PR_COUNT=$(echo "$OPEN_PRS" | jq 'length')
+
+          if [ "$PR_COUNT" -gt 0 ]; then
+            PR_URL=$(echo "$OPEN_PRS" | jq -r '.[0].html_url')
+            echo "::notice::PR already exists: $PR_URL"
+            echo "Existing PR will reflect the latest push to alpha."
+          else
+            PR_RESPONSE=$(curl -s -X POST \
+              -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository_owner }}/bmad.lens.copilot/pulls" \
+              -d "$(jq -n \
+                --arg title "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — .github adapter" \
+                --arg body "Automated .github adapter promotion from \`bmad.lens.bmad\` source.\n\n**Version:** ${{ steps.version.outputs.version }}\n**Source commit:** ${{ github.sha }}\n**Triggered by:** ${{ github.actor }}" \
+                --arg head "alpha" \
+                --arg base "beta" \
+                '{title: $title, body: $body, head: $head, base: $base}')")
+
+            PR_URL=$(echo "$PR_RESPONSE" | jq -r '.html_url // empty')
+
+            if [ -n "$PR_URL" ]; then
+              echo "✅ PR created: $PR_URL"
+            else
+              echo "::error::Failed to create PR in bmad.lens.copilot"
               echo "$PR_RESPONSE" | jq .
               exit 1
             fi
