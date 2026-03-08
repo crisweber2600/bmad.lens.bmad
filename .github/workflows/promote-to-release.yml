@@ -1,0 +1,175 @@
+# =============================================================================
+# Promote finalized lens-work source to bmad.lens.release
+#
+# Workflow:
+#   1. Checkout this repo (bmad.lens.bmad)
+#   2. Validate the source module (declarative-only, required files)
+#   3. Clone bmad.lens.release → checkout alpha
+#   4. Delete existing _bmad/lens-work/ contents
+#   5. Copy finalized output from bmad.lens.src/_bmad/lens-work/
+#   6. Commit & push to alpha
+#   7. Open a PR from alpha → beta
+# =============================================================================
+
+name: Promote to Release
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "bmad.lens.src/_bmad/lens-work/**"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout source repo ──────────────────────────────────────
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ── 2. Read module version ───────────────────────────────────────
+      - name: Read module version
+        id: version
+        run: |
+          VERSION=$(grep '^version:' bmad.lens.src/_bmad/lens-work/module.yaml \
+            | sed 's/version: *"\?\([^"]*\)"\?/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Module version: $VERSION"
+
+      # ── 3. Validate declarative-only constraint ──────────────────────
+      - name: Validate declarative-only constraint
+        run: |
+          echo "Scanning for disallowed executable files..."
+
+          EXECUTABLES=$(find bmad.lens.src/_bmad/lens-work/ -type f \( \
+            -name "*.js" -o -name "*.py" -o -name "*.ts" -o \
+            -name "*.rb" -o -name "*.go" -o -name "*.rs" -o \
+            -name "*.java" -o -name "*.exe" -o -name "*.bat" -o \
+            -name "*.cmd" \
+          \) 2>/dev/null || true)
+
+          ROGUE_SCRIPTS=$(find bmad.lens.src/_bmad/lens-work/ -type f \( \
+            -name "*.sh" -o -name "*.ps1" \
+          \) -not -path "*/scripts/*" 2>/dev/null || true)
+
+          if [ -n "$EXECUTABLES" ] || [ -n "$ROGUE_SCRIPTS" ]; then
+            echo "::error::Disallowed executable files found in module payload"
+            [ -n "$EXECUTABLES" ] && echo "$EXECUTABLES"
+            [ -n "$ROGUE_SCRIPTS" ] && echo "$ROGUE_SCRIPTS"
+            exit 1
+          fi
+
+          echo "✅ No disallowed executable files found"
+
+      # ── 4. Validate required files exist ─────────────────────────────
+      - name: Validate required files
+        run: |
+          REQUIRED=(
+            "bmad.lens.src/_bmad/lens-work/lifecycle.yaml"
+            "bmad.lens.src/_bmad/lens-work/module.yaml"
+            "bmad.lens.src/_bmad/lens-work/module-help.csv"
+            "bmad.lens.src/_bmad/lens-work/README.md"
+          )
+
+          MISSING=0
+          for f in "${REQUIRED[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing required file: $f"
+              MISSING=1
+            else
+              echo "✅ $f"
+            fi
+          done
+
+          if [ "$MISSING" -eq 1 ]; then
+            exit 1
+          fi
+
+      # ── 5. Clone release repo & checkout alpha ───────────────────────
+      - name: Clone bmad.lens.release
+        run: |
+          git clone --branch alpha \
+            "https://x-access-token:${{ secrets.RELEASE_REPO_TOKEN }}@github.com/${{ github.repository_owner }}/bmad.lens.release.git" \
+            release-repo
+
+      # ── 6. Delete existing contents & copy finalized output ──────────
+      - name: Sync module payload
+        run: |
+          # Remove existing module content
+          rm -rf release-repo/_bmad/lens-work/
+
+          # Copy finalized source output
+          mkdir -p release-repo/_bmad/
+          cp -r bmad.lens.src/_bmad/lens-work/ release-repo/_bmad/lens-work/
+
+          echo "✅ Module payload synced to release repo (alpha)"
+
+      # ── 7. Commit & push to alpha ────────────────────────────────────
+      - name: Commit and push to alpha
+        working-directory: release-repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to promote — skipping"
+            echo "has_changes=false" >> "$GITHUB_ENV"
+          else
+            git commit -m "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — synced from source"
+            git push origin alpha
+            echo "has_changes=true" >> "$GITHUB_ENV"
+            echo "✅ Committed and pushed to alpha"
+          fi
+
+      # ── 8. Create PR from alpha → beta ──────────────────────────────
+      - name: Create PR alpha → beta
+        if: env.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+        run: |
+          # Check for an existing open PR from alpha → beta
+          EXISTING_PR=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository_owner }}/bmad.lens.release/pulls?head=${{ github.repository_owner }}:alpha&base=beta&state=open")
+
+          OPEN_PRS=$(curl -s \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository_owner }}/bmad.lens.release/pulls?head=${{ github.repository_owner }}:alpha&base=beta&state=open")
+
+          PR_COUNT=$(echo "$OPEN_PRS" | jq 'length')
+
+          if [ "$PR_COUNT" -gt 0 ]; then
+            PR_URL=$(echo "$OPEN_PRS" | jq -r '.[0].html_url')
+            echo "::notice::PR already exists: $PR_URL"
+            echo "Existing PR will reflect the latest push to alpha."
+          else
+            # Create a new PR via GitHub REST API
+            PR_RESPONSE=$(curl -s -X POST \
+              -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository_owner }}/bmad.lens.release/pulls" \
+              -d "$(jq -n \
+                --arg title "[PROMOTE] lens-work v${{ steps.version.outputs.version }}" \
+                --arg body "Automated promotion from \`bmad.lens.bmad\` source.\n\n**Version:** ${{ steps.version.outputs.version }}\n**Source commit:** ${{ github.sha }}\n**Triggered by:** ${{ github.actor }}" \
+                --arg head "alpha" \
+                --arg base "beta" \
+                '{title: $title, body: $body, head: $head, base: $base}')")
+
+            PR_URL=$(echo "$PR_RESPONSE" | jq -r '.html_url // empty')
+
+            if [ -n "$PR_URL" ]; then
+              echo "✅ PR created: $PR_URL"
+            else
+              echo "::error::Failed to create PR"
+              echo "$PR_RESPONSE" | jq .
+              exit 1
+            fi
+          fi

@@ -1,0 +1,135 @@
+# LENS Workbench Module Configuration v2.0
+# Source repo — CI/CD promotes to bmad.lens.release
+
+code: lens-work
+name: "LENS Workbench"
+version: "2.0.0"
+header: "Guided lifecycle router with git-orchestrated discipline"
+subheader: "Phase-aware orchestration for BMAD workflows with automated branch topology"
+default_selected: false
+
+# Module Type
+type: standalone
+global: false
+
+# Lifecycle Contract
+lifecycle:
+  file: lifecycle.yaml
+  schema_version: 2
+
+# Dependencies
+dependencies:
+  - core
+
+optional_dependencies:
+  - cis
+  - tea
+
+# Skills (v2: git-state replaces state-management, sensing replaces discovery)
+# Provider adapter operations are integrated into git-orchestration skill
+skills:
+  - id: git-state
+    file: skills/git-state.md
+    description: "Derive initiative state from git primitives — read-only queries"
+  - id: git-orchestration
+    file: skills/git-orchestration.md
+    description: "Branch creation, commits, pushes, PR management, provider adapter — write operations"
+  - id: constitution
+    file: skills/constitution.md
+    description: "Constitutional governance resolution and compliance checks"
+  - id: sensing
+    file: skills/sensing.md
+    description: "Cross-initiative overlap detection at lifecycle gates"
+  - id: checklist
+    file: skills/checklist.md
+    description: "Phase gate checklists with progressive validation"
+
+# Workflows
+workflows:
+  core:
+    - id: phase-lifecycle
+      path: workflows/core/phase-lifecycle/
+      description: "Phase start, phase end, phase-to-audience PR"
+    - id: audience-promotion
+      path: workflows/core/audience-promotion/
+      description: "Audience→audience PR with gate + sensing"
+  router:
+    - id: init-initiative
+      path: workflows/router/init-initiative/
+      description: "/new-domain, /new-service, /new-feature"
+    - id: preplan
+      path: workflows/router/preplan/
+      description: "/preplan phase workflow"
+    - id: businessplan
+      path: workflows/router/businessplan/
+      description: "/businessplan phase workflow"
+    - id: techplan
+      path: workflows/router/techplan/
+      description: "/techplan phase workflow"
+    - id: devproposal
+      path: workflows/router/devproposal/
+      description: "/devproposal phase workflow"
+    - id: sprintplan
+      path: workflows/router/sprintplan/
+      description: "/sprintplan phase workflow"
+    - id: dev
+      path: workflows/router/dev/
+      description: "/dev phase workflow"
+  utility:
+    - id: onboard
+      path: workflows/utility/onboard/
+      description: "/onboard — profile, auth, governance bootstrap"
+    - id: status
+      path: workflows/utility/status/
+      description: "/status — git-derived state report"
+    - id: next
+      path: workflows/utility/next/
+      description: "/next — recommended next action"
+    - id: switch
+      path: workflows/utility/switch/
+      description: "/switch — checkout different initiative"
+    - id: help
+      path: workflows/utility/help/
+      description: "/help — command reference"
+    - id: module-management
+      path: workflows/utility/module-management/
+      description: "Module version check, update detection, and self-service update"
+  governance:
+    - id: compliance-check
+      path: workflows/governance/compliance-check/
+      description: "Constitution compliance scan"
+    - id: resolve-constitution
+      path: workflows/governance/resolve-constitution/
+      description: "4-level hierarchy resolution"
+    - id: cross-initiative
+      path: workflows/governance/cross-initiative/
+      description: "Cross-initiative sensing at gates"
+
+# Scripts (cross-platform, no CLI dependencies beyond git+curl)
+scripts:
+  - id: promote-branch
+    files:
+      - scripts/promote-branch.ps1
+      - scripts/promote-branch.sh
+    description: "Branch promotion, PR creation via REST API, and branch cleanup"
+  - id: store-github-pat
+    files:
+      - scripts/store-github-pat.ps1
+      - scripts/store-github-pat.sh
+    description: "Secure PAT collection into environment variables (run outside AI context)"
+
+# Prompts
+prompts:
+  - lens-work.onboard.prompt.md
+  - lens-work.new-initiative.prompt.md
+  - lens-work.preplan.prompt.md
+  - lens-work.businessplan.prompt.md
+  - lens-work.techplan.prompt.md
+  - lens-work.devproposal.prompt.md
+  - lens-work.sprintplan.prompt.md
+  - lens-work.status.prompt.md
+  - lens-work.next.prompt.md
+  - lens-work.switch.prompt.md
+  - lens-work.promote.prompt.md
+  - lens-work.constitution.prompt.md
+  - lens-work.help.prompt.md
