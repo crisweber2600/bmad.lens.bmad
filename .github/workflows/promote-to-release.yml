@@ -5,8 +5,8 @@
 #   1. Checkout this repo (bmad.lens.bmad)
 #   2. Validate the source module (declarative-only, required files)
 #   3. Clone bmad.lens.release → checkout alpha
-#   4. Delete existing _bmad/lens-work/ contents
-#   5. Copy finalized output from bmad.lens.src/_bmad/lens-work/
+#   4. Delete existing lens-work contents (_bmad/lens-work/ + .github adapter)
+#   5. Copy finalized output from bmad.lens.src/
 #   6. Commit & push to alpha
 #   7. Open a PR from alpha → beta
 # =============================================================================
@@ -18,6 +18,7 @@ on:
     branches: [master]
     paths:
       - "bmad.lens.src/_bmad/lens-work/**"
+      - "bmad.lens.src/.github/**"
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -102,11 +103,27 @@ jobs:
           # Remove existing module content
           rm -rf release-repo/_bmad/lens-work/
 
-          # Copy finalized source output
+          # Copy finalized module source
           mkdir -p release-repo/_bmad/
           cp -r bmad.lens.src/_bmad/lens-work/ release-repo/_bmad/lens-work/
 
-          echo "✅ Module payload synced to release repo (alpha)"
+          # Sync .github adapter layer (agent + stub prompts)
+          if [ -d "bmad.lens.src/.github/agents" ]; then
+            mkdir -p release-repo/.github/agents/
+            cp -f bmad.lens.src/.github/agents/bmad-agent-lens-work-lens.agent.md \
+              release-repo/.github/agents/bmad-agent-lens-work-lens.agent.md
+            echo "✅ Agent adapter synced"
+          fi
+
+          if [ -d "bmad.lens.src/.github/prompts" ]; then
+            mkdir -p release-repo/.github/prompts/
+            # Sync only lens-work stub prompts (don't touch other module prompts)
+            cp -f bmad.lens.src/.github/prompts/lens-work.*.prompt.md \
+              release-repo/.github/prompts/
+            echo "✅ Stub prompts synced"
+          fi
+
+          echo "✅ Full payload synced to release repo (alpha)"
 
       # ── 7. Commit & push to alpha ────────────────────────────────────
       - name: Commit and push to alpha

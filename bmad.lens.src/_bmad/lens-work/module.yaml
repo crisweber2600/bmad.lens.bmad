@@ -133,3 +133,25 @@ prompts:
   - lens-work.promote.prompt.md
   - lens-work.constitution.prompt.md
   - lens-work.help.prompt.md
+
+# Copilot Adapter Layer (.github/)
+# Thin stubs — installed alongside the module to wire @lens into VS Code Copilot
+adapter:
+  agent: .github/agents/bmad-agent-lens-work-lens.agent.md
+  stub_prompts:
+    - .github/prompts/lens-work.onboard.prompt.md
+    - .github/prompts/lens-work.new-initiative.prompt.md
+    - .github/prompts/lens-work.new-domain.prompt.md
+    - .github/prompts/lens-work.new-service.prompt.md
+    - .github/prompts/lens-work.new-feature.prompt.md
+    - .github/prompts/lens-work.switch.prompt.md
+    - .github/prompts/lens-work.status.prompt.md
+    - .github/prompts/lens-work.next.prompt.md
+    - .github/prompts/lens-work.help.prompt.md
+    - .github/prompts/lens-work.promote.prompt.md
+    - .github/prompts/lens-work.constitution.prompt.md
+    - .github/prompts/lens-work.preplan.prompt.md
+    - .github/prompts/lens-work.businessplan.prompt.md
+    - .github/prompts/lens-work.techplan.prompt.md
+    - .github/prompts/lens-work.devproposal.prompt.md
+    - .github/prompts/lens-work.sprintplan.prompt.md
