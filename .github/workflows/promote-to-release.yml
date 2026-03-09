@@ -84,7 +84,7 @@ jobs:
               echo "✅ $f"
             fi
           done
-          [ "$MISSING" -eq 1 ] && exit 1
+          if [ "$MISSING" -eq 1 ]; then exit 1; fi
 
       # ── 4. Setup Node.js ────────────────────────────────────────────
       - name: Setup Node.js
