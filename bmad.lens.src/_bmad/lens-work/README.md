@@ -53,6 +53,68 @@ PR creation and authentication use cross-platform scripts with REST API + PAT. *
 
 PAT resolution: `GITHUB_PAT` env var → `GH_TOKEN` env var → `profile.yaml` → URL-only fallback
 
+## Installation
+
+### Quick Install (default — GitHub Copilot adapter only)
+
+```bash
+# From the control repo root:
+./_bmad/lens-work/scripts/install.sh
+
+# Windows:
+powershell .\_bmad\lens-work\scripts\install.ps1
+```
+
+### Multi-IDE Install
+
+```bash
+./_bmad/lens-work/scripts/install.sh --all-ides
+```
+
+### Update Existing Adapters
+
+```bash
+./_bmad/lens-work/scripts/install.sh --update
+```
+
+See `module.yaml` `install_questions` for configuration options (target projects path, default git provider, IDE selection).
+
+## Quick Start
+
+1. **Install** — run the installer script above
+2. **Onboard** — use `/onboard` to bootstrap the control repo (detect provider, validate auth, create profile)
+3. **Create initiative** — use `/new-domain`, `/new-service`, or `/new-feature`
+4. **Begin planning** — use `/preplan` to start the lifecycle
+5. **Check status** — use `/status` at any time to see git-derived state
+
 ## Commands
 
 `/onboard`, `/new-domain`, `/new-service`, `/new-feature`, `/preplan`, `/businessplan`, `/techplan`, `/devproposal`, `/sprintplan`, `/dev`, `/status`, `/next`, `/switch`, `/promote`, `/sense`, `/help`
+
+## Configuration
+
+Configuration is managed through `module.yaml` install questions:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `target_projects_path` | Where repos are cloned | `../TargetProjects` |
+| `default_git_remote` | Git provider (GitHub, GitLab, Azure DevOps) | `github` |
+| `ides` | IDE adapters to install | `github-copilot` |
+
+## Documentation
+
+See the [docs/](docs/) folder for detailed reference:
+
+- [Lifecycle Reference](docs/lifecycle-reference.md) — Phases, audiences, tracks
+- [Copilot Adapter Reference](docs/copilot-adapter-reference.md) — Agent stub architecture
+- [Copilot Adapter Templates](docs/copilot-adapter-templates.md) — Template patterns
+- [Pipeline: Source to Release](docs/pipeline-source-to-release.md) — CI/CD promotion
+
+## Dependencies
+
+- **Required:** `core` — BMAD core infrastructure
+- **Optional:** `cis` — Creative Innovation Suite, `tea` — Test Engineering Academy
+
+## Author
+
+LENS Workbench is part of the BMad Method ecosystem. See the [BMad Method](https://github.com/bmad-code-org/BMAD-METHOD) for more information.

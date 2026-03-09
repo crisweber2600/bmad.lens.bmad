@@ -1,11 +1,15 @@
 # =============================================================================
-# Promote finalized lens-work source to bmad.lens.release + bmad.lens.copilot
+# Build full BMAD release with lens-work custom module → bmad.lens.release alpha
+# Also promote Copilot adapter to bmad.lens.copilot alpha
 #
-# Workflow:
-#   Job 1 — promote-release:
-#     Clone bmad.lens.release → alpha, sync module + .github adapter, PR → beta
-#   Job 2 — promote-copilot:
-#     Clone bmad.lens.copilot → alpha, sync .github adapter only, PR → beta
+# Pipeline:
+#   1. Validate lens-work source
+#   2. Install full BMAD framework (core + all modules + all IDEs)
+#   3. Overlay lens-work custom module into the install
+#   4. Run lens-work _module-installer to generate its IDE adapters
+#   5. Fix copilot-instructions.md with correct project config
+#   6. Push full payload to bmad.lens.release alpha → PR to beta
+#   7. Push Copilot adapter to bmad.lens.copilot alpha → PR to beta
 # =============================================================================
 
 name: Promote to Release
@@ -15,7 +19,6 @@ on:
     branches: [master]
     paths:
       - "bmad.lens.src/_bmad/lens-work/**"
-      - "bmad.lens.src/.github/**"
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -38,17 +41,18 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Module version: $VERSION"
 
-      # ── 3. Validate declarative-only constraint ──────────────────────
+      # ── 3. Validate lens-work source ─────────────────────────────────
       - name: Validate declarative-only constraint
         run: |
           echo "Scanning for disallowed executable files..."
 
+          # _module-installer/ is the official BMAD installer pattern — exempt
           EXECUTABLES=$(find bmad.lens.src/_bmad/lens-work/ -type f \( \
             -name "*.js" -o -name "*.py" -o -name "*.ts" -o \
             -name "*.rb" -o -name "*.go" -o -name "*.rs" -o \
             -name "*.java" -o -name "*.exe" -o -name "*.bat" -o \
             -name "*.cmd" \
-          \) 2>/dev/null || true)
+          \) -not -path "*/_module-installer/*" 2>/dev/null || true)
 
           ROGUE_SCRIPTS=$(find bmad.lens.src/_bmad/lens-work/ -type f \( \
             -name "*.sh" -o -name "*.ps1" \
@@ -60,10 +64,8 @@ jobs:
             [ -n "$ROGUE_SCRIPTS" ] && echo "$ROGUE_SCRIPTS"
             exit 1
           fi
-
           echo "✅ No disallowed executable files found"
 
-      # ── 4. Validate required files exist ─────────────────────────────
       - name: Validate required files
         run: |
           REQUIRED=(
@@ -71,8 +73,8 @@ jobs:
             "bmad.lens.src/_bmad/lens-work/module.yaml"
             "bmad.lens.src/_bmad/lens-work/module-help.csv"
             "bmad.lens.src/_bmad/lens-work/README.md"
+            "bmad.lens.src/_bmad/lens-work/_module-installer/installer.js"
           )
-
           MISSING=0
           for f in "${REQUIRED[@]}"; do
             if [ ! -f "$f" ]; then
@@ -82,10 +84,13 @@ jobs:
               echo "✅ $f"
             fi
           done
+          [ "$MISSING" -eq 1 ] && exit 1
 
-          if [ "$MISSING" -eq 1 ]; then
-            exit 1
-          fi
+      # ── 4. Setup Node.js ────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       # ── 5. Clone release repo & checkout alpha ───────────────────────
       - name: Clone bmad.lens.release
@@ -94,35 +99,99 @@ jobs:
             "https://x-access-token:${{ secrets.RELEASE_REPO_TOKEN }}@github.com/${{ github.repository_owner }}/bmad.lens.release.git" \
             release-repo
 
-      # ── 6. Delete existing contents & copy finalized output ──────────
-      - name: Sync module payload
+      # ── 6. Clean release repo for fresh build ────────────────────────
+      - name: Clean release repo (preserve .git)
         run: |
-          # Remove existing module content
-          rm -rf release-repo/_bmad/lens-work/
+          cd release-repo
+          # Remove everything except .git and .gitignore
+          find . -maxdepth 1 -not -name '.git' -not -name '.gitignore' -not -name '.' | xargs rm -rf
+          echo "✅ Release repo cleaned for fresh build"
 
-          # Copy finalized module source
+      # ── 7. Install full BMAD framework ───────────────────────────────
+      - name: Install BMAD framework (all modules + IDEs)
+        run: |
+          npx bmad-method install \
+            --directory release-repo \
+            --modules "core,bmm,bmb,cis,gds,tea" \
+            --tools "github-copilot,cursor,claude-code" \
+            --user-name "CrisWeber" \
+            --communication-language "English" \
+            --document-output-language "English" \
+            --output-folder "_bmad-output" \
+            --yes
+
+          echo "✅ BMAD framework installed"
+
+      # ── 8. Overlay lens-work custom module ───────────────────────────
+      - name: Overlay lens-work custom module
+        run: |
+          # Copy lens-work into _bmad/ as a custom module
           mkdir -p release-repo/_bmad/
           cp -r bmad.lens.src/_bmad/lens-work/ release-repo/_bmad/lens-work/
 
-          # Sync .github adapter layer (agent + stub prompts)
-          if [ -d "bmad.lens.src/.github/agents" ]; then
-            mkdir -p release-repo/.github/agents/
-            cp -f bmad.lens.src/.github/agents/bmad-agent-lens-work-lens.agent.md \
-              release-repo/.github/agents/bmad-agent-lens-work-lens.agent.md
-            echo "✅ Agent adapter synced"
+          # Also register in _config/custom/ (BMAD convention for custom modules)
+          mkdir -p release-repo/_bmad/_config/custom/lens-work/
+          cp -r bmad.lens.src/_bmad/lens-work/ release-repo/_bmad/_config/custom/lens-work/
+
+          echo "✅ lens-work custom module overlaid"
+
+      # ── 9. Run lens-work installer for IDE adapters ──────────────────
+      - name: Install lens-work IDE adapters
+        run: |
+          node -e "
+            const installer = require('./release-repo/_bmad/lens-work/_module-installer/installer.js');
+            const path = require('path');
+
+            installer.install({
+              projectRoot: path.resolve('release-repo'),
+              config: {
+                target_projects_path: '../TargetProjects',
+                default_git_remote: 'github'
+              },
+              installedIDEs: ['github-copilot', 'cursor', 'claude', 'codex'],
+              logger: {
+                log:   (m) => console.log(m),
+                warn:  (m) => console.warn('⚠️ ' + m),
+                error: (m) => console.error('❌ ' + m)
+              },
+              updateMode: true
+            }).then(ok => {
+              if (!ok) process.exit(1);
+              console.log('✅ lens-work IDE adapters installed');
+            }).catch(err => {
+              console.error(err);
+              process.exit(1);
+            });
+          "
+
+      # ── 10. Fix copilot-instructions.md project name ─────────────────
+      - name: Patch copilot-instructions.md
+        run: |
+          INSTRUCTIONS="release-repo/.github/copilot-instructions.md"
+          if [ -f "$INSTRUCTIONS" ]; then
+            # Fix the project name (BMAD CLI uses directory name)
+            sed -i 's/- \*\*Project\*\*: release-repo/- **Project**: bmad.lens.release/' "$INSTRUCTIONS"
+            sed -i 's/- \*\*Output Folder\*\*: _bmad-output/- **Output Folder**: bmad.lens.release\/_bmad-output/' "$INSTRUCTIONS"
+            echo "✅ copilot-instructions.md patched"
           fi
 
-          if [ -d "bmad.lens.src/.github/prompts" ]; then
-            mkdir -p release-repo/.github/prompts/
-            # Sync only lens-work stub prompts (don't touch other module prompts)
-            cp -f bmad.lens.src/.github/prompts/lens-work.*.prompt.md \
-              release-repo/.github/prompts/
-            echo "✅ Stub prompts synced"
+      # ── 11. Add manifest entry for lens-work ─────────────────────────
+      - name: Update BMAD manifest with lens-work
+        run: |
+          MANIFEST="release-repo/_bmad/_config/manifest.yaml"
+          if [ -f "$MANIFEST" ]; then
+            if ! grep -q "name: lens-work" "$MANIFEST"; then
+              VERSION="${{ steps.version.outputs.version }}"
+              NOW="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
+              printf '\n  - name: lens-work\n    version: "%s"\n    installDate: "%s"\n    lastUpdated: "%s"\n    source: custom\n    npmPackage: null\n    repoUrl: null\n' \
+                "$VERSION" "$NOW" "$NOW" >> "$MANIFEST"
+              echo "lens-work added to manifest"
+            else
+              echo "lens-work already in manifest"
+            fi
           fi
 
-          echo "✅ Full payload synced to release repo (alpha)"
-
-      # ── 7. Commit & push to alpha ────────────────────────────────────
+      # ── 12. Commit & push to alpha ───────────────────────────────────
       - name: Commit and push to alpha
         working-directory: release-repo
         run: |
@@ -135,24 +204,18 @@ jobs:
             echo "No changes to promote — skipping"
             echo "has_changes=false" >> "$GITHUB_ENV"
           else
-            git commit -m "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — synced from source"
+            git commit -m "[PROMOTE] Full BMAD + lens-work v${{ steps.version.outputs.version }}"
             git push origin alpha
             echo "has_changes=true" >> "$GITHUB_ENV"
             echo "✅ Committed and pushed to alpha"
           fi
 
-      # ── 8. Create PR from alpha → beta ──────────────────────────────
+      # ── 13. Create PR alpha → beta ──────────────────────────────────
       - name: Create PR alpha → beta
         if: env.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
         run: |
-          # Check for an existing open PR from alpha → beta
-          EXISTING_PR=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: token $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository_owner }}/bmad.lens.release/pulls?head=${{ github.repository_owner }}:alpha&base=beta&state=open")
-
           OPEN_PRS=$(curl -s \
             -H "Authorization: token $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
@@ -163,16 +226,14 @@ jobs:
           if [ "$PR_COUNT" -gt 0 ]; then
             PR_URL=$(echo "$OPEN_PRS" | jq -r '.[0].html_url')
             echo "::notice::PR already exists: $PR_URL"
-            echo "Existing PR will reflect the latest push to alpha."
           else
-            # Create a new PR via GitHub REST API
             PR_RESPONSE=$(curl -s -X POST \
               -H "Authorization: token $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/${{ github.repository_owner }}/bmad.lens.release/pulls" \
               -d "$(jq -n \
-                --arg title "[PROMOTE] lens-work v${{ steps.version.outputs.version }}" \
-                --arg body "Automated promotion from \`bmad.lens.bmad\` source.\n\n**Version:** ${{ steps.version.outputs.version }}\n**Source commit:** ${{ github.sha }}\n**Triggered by:** ${{ github.actor }}" \
+                --arg title "[PROMOTE] Full BMAD + lens-work v${{ steps.version.outputs.version }}" \
+                --arg body "Full BMAD framework + lens-work custom module build.\n\n**lens-work version:** ${{ steps.version.outputs.version }}\n**Source commit:** ${{ github.sha }}\n**Triggered by:** ${{ github.actor }}\n\n**Included:**\n- BMAD core + bmm + bmb + cis + gds + tea\n- lens-work custom module\n- IDE adapters: GitHub Copilot, Cursor, Claude, Codex" \
                 --arg head "alpha" \
                 --arg base "beta" \
                 '{title: $title, body: $body, head: $head, base: $base}')")
@@ -189,7 +250,7 @@ jobs:
           fi
 
   # ═══════════════════════════════════════════════════════════════════════
-  # Job 2: Promote .github adapter to bmad.lens.copilot
+  # Job 2: Promote Copilot adapter to bmad.lens.copilot
   # ═══════════════════════════════════════════════════════════════════════
   promote-copilot:
     runs-on: ubuntu-latest
@@ -218,26 +279,34 @@ jobs:
             "https://x-access-token:${{ secrets.COPILOT_REPO_TOKEN }}@github.com/${{ github.repository_owner }}/bmad.lens.copilot.git" \
             copilot-repo
 
-      # ── 4. Sync .github adapter layer ────────────────────────────────
-      - name: Sync .github adapter to copilot repo
+      # ── 4. Install Copilot adapter via lens-work installer ───────────
+      - name: Install Copilot adapter via _module-installer
         run: |
-          # Sync agent file
-          if [ -d "bmad.lens.src/.github/agents" ]; then
-            mkdir -p copilot-repo/.github/agents/
-            cp -f bmad.lens.src/.github/agents/bmad-agent-lens-work-lens.agent.md \
-              copilot-repo/.github/agents/bmad-agent-lens-work-lens.agent.md
-            echo "✅ Agent adapter synced"
-          fi
+          node -e "
+            const installer = require('./bmad.lens.src/_bmad/lens-work/_module-installer/installer.js');
+            const path = require('path');
 
-          # Sync stub prompts
-          if [ -d "bmad.lens.src/.github/prompts" ]; then
-            mkdir -p copilot-repo/.github/prompts/
-            cp -f bmad.lens.src/.github/prompts/lens-work.*.prompt.md \
-              copilot-repo/.github/prompts/
-            echo "✅ Stub prompts synced"
-          fi
-
-          echo "✅ .github adapter synced to copilot repo (alpha)"
+            installer.install({
+              projectRoot: path.resolve('copilot-repo'),
+              config: {
+                target_projects_path: '../TargetProjects',
+                default_git_remote: 'github'
+              },
+              installedIDEs: ['github-copilot'],
+              logger: {
+                log:   (m) => console.log(m),
+                warn:  (m) => console.warn('⚠️ ' + m),
+                error: (m) => console.error('❌ ' + m)
+              },
+              updateMode: true
+            }).then(ok => {
+              if (!ok) process.exit(1);
+              console.log('✅ Copilot adapter installed');
+            }).catch(err => {
+              console.error(err);
+              process.exit(1);
+            });
+          "
 
       # ── 5. Commit & push to alpha ────────────────────────────────────
       - name: Commit and push to alpha
@@ -252,13 +321,13 @@ jobs:
             echo "No changes to promote — skipping"
             echo "has_changes=false" >> "$GITHUB_ENV"
           else
-            git commit -m "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — .github adapter synced from source"
+            git commit -m "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — Copilot adapter"
             git push origin alpha
             echo "has_changes=true" >> "$GITHUB_ENV"
             echo "✅ Committed and pushed to alpha"
           fi
 
-      # ── 6. Create PR from alpha → beta ──────────────────────────────
+      # ── 6. Create PR alpha → beta ──────────────────────────────────
       - name: Create PR alpha → beta
         if: env.has_changes == 'true'
         env:
@@ -274,15 +343,14 @@ jobs:
           if [ "$PR_COUNT" -gt 0 ]; then
             PR_URL=$(echo "$OPEN_PRS" | jq -r '.[0].html_url')
             echo "::notice::PR already exists: $PR_URL"
-            echo "Existing PR will reflect the latest push to alpha."
           else
             PR_RESPONSE=$(curl -s -X POST \
               -H "Authorization: token $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/${{ github.repository_owner }}/bmad.lens.copilot/pulls" \
               -d "$(jq -n \
-                --arg title "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — .github adapter" \
-                --arg body "Automated .github adapter promotion from \`bmad.lens.bmad\` source.\n\n**Version:** ${{ steps.version.outputs.version }}\n**Source commit:** ${{ github.sha }}\n**Triggered by:** ${{ github.actor }}" \
+                --arg title "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — Copilot adapter" \
+                --arg body "Automated Copilot adapter promotion.\n\n**Version:** ${{ steps.version.outputs.version }}\n**Source commit:** ${{ github.sha }}\n**Triggered by:** ${{ github.actor }}" \
                 --arg head "alpha" \
                 --arg base "beta" \
                 '{title: $title, body: $body, head: $head, base: $base}')")
