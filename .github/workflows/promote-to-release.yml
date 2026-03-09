@@ -358,48 +358,23 @@ jobs:
 
       # ── 6. Generate prompt stubs pointing to bmad.lens.release ───────
       - name: Generate prompt stubs for all lens-work prompts
+        shell: bash
         run: |
           mkdir -p copilot-repo/.github/prompts
-
-          # Clean existing prompt stubs and regenerate
           rm -f copilot-repo/.github/prompts/*.prompt.md
-
-          # Backtick sequences as variables to avoid YAML/shell escaping issues
-          BT='`'
-          FENCE3="${BT}${BT}${BT}"
-          FENCE4="${BT}${BT}${BT}${BT}"
 
           for src in release-repo/.github/prompts/*.prompt.md; do
             [ -f "$src" ] || continue
             filename=$(basename "$src")
-
-            # Extract description from frontmatter (line: description: '...')
             desc=$(sed -n "s/^description: *['\"]\\(.*\\)['\"] *$/\\1/p" "$src" | head -1)
             if [ -z "$desc" ]; then
               desc=$(sed -n "s/^description: *\\(.*\\) *$/\\1/p" "$src" | head -1)
             fi
-            [ -z "$desc" ] && desc="LENS Workbench prompt"
-
-            # Derive display name from filename (strip .prompt.md)
+            : "${desc:=LENS Workbench prompt}"
             name="${filename%.prompt.md}"
-
-            cat > "copilot-repo/.github/prompts/$filename" << STUBEOF
-${FENCE4}prompt
----
-description: '${desc}'
----
-
-# ${name} (Stub)
-
-> **This is a stub.** Load and execute the full prompt from the release module.
-> All ${BT}_bmad/${BT} paths in the full prompt are relative to ${BT}bmad.lens.release/${BT} — do NOT resolve paths against the user's main project repo.
-
-${FENCE3}
-Read and follow all instructions in: bmad.lens.release/.github/prompts/${filename}
-${FENCE3}
-
-${FENCE4}
-STUBEOF
+            printf '````prompt\n---\ndescription: '\''%s'\''\n---\n\n# %s (Stub)\n\n> **This is a stub.** Load and execute the full prompt from the release module.\n> All `_bmad/` paths in the full prompt are relative to `bmad.lens.release/` — do NOT resolve paths against the user'\''s main project repo.\n\n```\nRead and follow all instructions in: bmad.lens.release/.github/prompts/%s\n```\n\n````\n' \
+              "$desc" "$name" "$filename" \
+              > "copilot-repo/.github/prompts/$filename"
             echo "  created: $filename"
           done
 
