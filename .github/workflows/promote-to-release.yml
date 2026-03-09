@@ -7,9 +7,10 @@
 #   2. Install full BMAD framework (core + all modules + all IDEs)
 #   3. Overlay lens-work custom module into the install
 #   4. Run lens-work _module-installer to generate its IDE adapters
-#   5. Fix copilot-instructions.md with correct project config
-#   6. Push full payload to bmad.lens.release alpha → PR to beta
-#   7. Push Copilot adapter to bmad.lens.copilot alpha → PR to beta
+#   5. Post-process: rename .xml→.yaml, config.yaml→bmadconfig.yaml
+#   6. Fix copilot-instructions.md with correct project config
+#   7. Push full payload to bmad.lens.release alpha → PR to beta
+#   8. Push Copilot adapter to bmad.lens.copilot alpha → PR to beta
 # =============================================================================
 
 name: Promote to Release
@@ -164,7 +165,64 @@ jobs:
             });
           "
 
-      # ── 10. Fix copilot-instructions.md project name ─────────────────
+      # ── 10. Post-process: .xml→.yaml + config.yaml→bmadconfig.yaml ──
+      - name: Post-process XML and config file names
+        run: |
+          cd release-repo
+
+          echo "=== Step 1: Rename .xml files to .yaml ==="
+          find . -name '*.xml' -type f -not -path './.git/*' | while IFS= read -r f; do
+            target="${f%.xml}.yaml"
+            if [ -f "$target" ]; then
+              echo "⚠️ Skipping (target exists): $f"
+            else
+              mv "$f" "$target"
+              echo "  $f → $target"
+            fi
+          done
+
+          echo ""
+          echo "=== Step 2: Update .xml references → .yaml ==="
+          find . -type f -not -path './.git/*' \( \
+            -name '*.md' -o -name '*.yaml' -o -name '*.yml' -o \
+            -name '*.csv' -o -name '*.json' -o -name '*.txt' -o \
+            -name '*.js' \
+          \) -print0 | xargs -0 grep -rl '\.xml' 2>/dev/null | while IFS= read -r f; do
+            sed -i 's/\.xml/.yaml/g' "$f"
+            echo "  Updated: $f"
+          done
+
+          echo ""
+          echo "=== Step 3: Rename config.yaml → bmadconfig.yaml ==="
+          find . -name 'config.yaml' -type f -not -path './.git/*' | while IFS= read -r f; do
+            dir=$(dirname "$f")
+            mv "$f" "$dir/bmadconfig.yaml"
+            echo "  $f → $dir/bmadconfig.yaml"
+          done
+
+          echo ""
+          echo "=== Step 4: Update config.yaml references → bmadconfig.yaml ==="
+          find . -type f -not -path './.git/*' \( \
+            -name '*.md' -o -name '*.yaml' -o -name '*.yml' -o \
+            -name '*.csv' -o -name '*.json' -o -name '*.txt' -o \
+            -name '*.js' \
+          \) -print0 | xargs -0 grep -rl '\bconfig\.yaml\b' 2>/dev/null | while IFS= read -r f; do
+            sed -i 's/\bconfig\.yaml\b/bmadconfig.yaml/g' "$f"
+            echo "  Updated: $f"
+          done
+
+          echo ""
+          echo "=== Verification ==="
+          XML_COUNT=$(find . -name '*.xml' -type f -not -path './.git/*' | wc -l)
+          CFG_COUNT=$(find . -name 'config.yaml' -type f -not -path './.git/*' | wc -l)
+          echo "Remaining .xml files: $XML_COUNT"
+          echo "Remaining config.yaml files: $CFG_COUNT"
+          if [ "$XML_COUNT" -gt 0 ] || [ "$CFG_COUNT" -gt 0 ]; then
+            echo "::warning::Some files were not converted"
+          fi
+          echo "✅ Post-processing complete"
+
+      # ── 11. Fix copilot-instructions.md project name ─────────────────
       - name: Patch copilot-instructions.md
         run: |
           INSTRUCTIONS="release-repo/.github/copilot-instructions.md"
@@ -175,7 +233,7 @@ jobs:
             echo "✅ copilot-instructions.md patched"
           fi
 
-      # ── 11. Add manifest entry for lens-work ─────────────────────────
+      # ── 12. Add manifest entry for lens-work ─────────────────────────
       - name: Update BMAD manifest with lens-work
         run: |
           MANIFEST="release-repo/_bmad/_config/manifest.yaml"
@@ -191,7 +249,7 @@ jobs:
             fi
           fi
 
-      # ── 12. Commit & push to alpha ───────────────────────────────────
+      # ── 13. Commit & push to alpha ───────────────────────────────────
       - name: Commit and push to alpha
         working-directory: release-repo
         run: |
@@ -210,7 +268,7 @@ jobs:
             echo "✅ Committed and pushed to alpha"
           fi
 
-      # ── 13. Create PR alpha → beta ──────────────────────────────────
+      # ── 14. Create PR alpha → beta ──────────────────────────────────
       - name: Create PR alpha → beta
         if: env.has_changes == 'true'
         env:
