@@ -330,43 +330,86 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Module version: $VERSION"
 
-      # ── 3. Clone copilot repo & checkout alpha ───────────────────────
+      # ── 3. Clone release repo (just built) ──────────────────────────
+      - name: Clone bmad.lens.release (alpha)
+        run: |
+          git clone --branch alpha \
+            "https://x-access-token:${{ secrets.RELEASE_REPO_TOKEN }}@github.com/${{ github.repository_owner }}/bmad.lens.release.git" \
+            release-repo
+
+      # ── 4. Clone copilot repo & checkout alpha ───────────────────────
       - name: Clone bmad.lens.copilot
         run: |
           git clone --branch alpha \
             "https://x-access-token:${{ secrets.COPILOT_REPO_TOKEN }}@github.com/${{ github.repository_owner }}/bmad.lens.copilot.git" \
             copilot-repo
 
-      # ── 4. Install Copilot adapter via lens-work installer ───────────
-      - name: Install Copilot adapter via _module-installer
+      # ── 5. Copy agents from release → copilot ───────────────────────
+      - name: Copy all agents from release repo
         run: |
-          node -e "
-            const installer = require('./bmad.lens.src/_bmad/lens-work/_module-installer/installer.js');
-            const path = require('path');
+          mkdir -p copilot-repo/.github/agents
 
-            installer.install({
-              projectRoot: path.resolve('copilot-repo'),
-              config: {
-                target_projects_path: '../TargetProjects',
-                default_git_remote: 'github'
-              },
-              installedIDEs: ['github-copilot'],
-              logger: {
-                log:   (m) => console.log(m),
-                warn:  (m) => console.warn('⚠️ ' + m),
-                error: (m) => console.error('❌ ' + m)
-              },
-              updateMode: true
-            }).then(ok => {
-              if (!ok) process.exit(1);
-              console.log('✅ Copilot adapter installed');
-            }).catch(err => {
-              console.error(err);
-              process.exit(1);
-            });
-          "
+          # Clean existing agents and copy fresh from release
+          rm -f copilot-repo/.github/agents/*.agent.md
+          cp release-repo/.github/agents/*.agent.md copilot-repo/.github/agents/ 2>/dev/null || true
 
-      # ── 5. Commit & push to alpha ────────────────────────────────────
+          AGENT_COUNT=$(ls copilot-repo/.github/agents/*.agent.md 2>/dev/null | wc -l)
+          echo "✅ Copied $AGENT_COUNT agent stubs"
+
+      # ── 6. Generate prompt stubs pointing to bmad.lens.release ───────
+      - name: Generate prompt stubs for all lens-work prompts
+        run: |
+          mkdir -p copilot-repo/.github/prompts
+
+          # Clean existing prompt stubs and regenerate
+          rm -f copilot-repo/.github/prompts/*.prompt.md
+
+          for src in release-repo/.github/prompts/*.prompt.md; do
+            [ -f "$src" ] || continue
+            filename=$(basename "$src")
+
+            # Extract description from frontmatter (line: description: '...')
+            desc=$(sed -n "s/^description: *['\"]\\(.*\\)['\"] *$/\\1/p" "$src" | head -1)
+            if [ -z "$desc" ]; then
+              desc=$(sed -n "s/^description: *\\(.*\\) *$/\\1/p" "$src" | head -1)
+            fi
+            [ -z "$desc" ] && desc="LENS Workbench prompt"
+
+            # Derive display name from filename (strip .prompt.md)
+            name="${filename%.prompt.md}"
+
+            cat > "copilot-repo/.github/prompts/$filename" << STUBEOF
+\`\`\`\`prompt
+---
+description: '${desc}'
+---
+
+# ${name} (Stub)
+
+> **This is a stub.** Load and execute the full prompt from the release module.
+> All \`_bmad/\` paths in the full prompt are relative to \`bmad.lens.release/\` — do NOT resolve paths against the user's main project repo.
+
+\`\`\`
+Read and follow all instructions in: bmad.lens.release/.github/prompts/${filename}
+\`\`\`
+
+\`\`\`\`
+STUBEOF
+            echo "  created: $filename"
+          done
+
+          PROMPT_COUNT=$(ls copilot-repo/.github/prompts/*.prompt.md 2>/dev/null | wc -l)
+          echo "✅ Generated $PROMPT_COUNT prompt stubs"
+
+      # ── 7. Copy copilot-instructions.md from release ─────────────────
+      - name: Copy copilot-instructions.md
+        run: |
+          if [ -f "release-repo/.github/copilot-instructions.md" ]; then
+            cp release-repo/.github/copilot-instructions.md copilot-repo/.github/copilot-instructions.md
+            echo "✅ copilot-instructions.md copied"
+          fi
+
+      # ── 8. Commit & push to alpha ────────────────────────────────────
       - name: Commit and push to alpha
         working-directory: copilot-repo
         run: |
@@ -379,13 +422,13 @@ jobs:
             echo "No changes to promote — skipping"
             echo "has_changes=false" >> "$GITHUB_ENV"
           else
-            git commit -m "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — Copilot adapter"
+            git commit -m "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — Copilot adapter (agents + prompts)"
             git push origin alpha
             echo "has_changes=true" >> "$GITHUB_ENV"
             echo "✅ Committed and pushed to alpha"
           fi
 
-      # ── 6. Create PR alpha → beta ──────────────────────────────────
+      # ── 9. Create PR alpha → beta ──────────────────────────────────
       - name: Create PR alpha → beta
         if: env.has_changes == 'true'
         env:
@@ -408,7 +451,7 @@ jobs:
               "https://api.github.com/repos/${{ github.repository_owner }}/bmad.lens.copilot/pulls" \
               -d "$(jq -n \
                 --arg title "[PROMOTE] lens-work v${{ steps.version.outputs.version }} — Copilot adapter" \
-                --arg body "Automated Copilot adapter promotion.\n\n**Version:** ${{ steps.version.outputs.version }}\n**Source commit:** ${{ github.sha }}\n**Triggered by:** ${{ github.actor }}" \
+                --arg body "Automated Copilot adapter promotion.\n\n**Version:** ${{ steps.version.outputs.version }}\n**Source commit:** ${{ github.sha }}\n**Triggered by:** ${{ github.actor }}\n\n**Includes:**\n- All BMAD + lens-work agent stubs\n- All lens-work prompt stubs → bmad.lens.release/\n- copilot-instructions.md" \
                 --arg head "alpha" \
                 --arg base "beta" \
                 '{title: $title, body: $body, head: $head, base: $base}')")
