@@ -3,12 +3,12 @@
 
 ## Project Configuration
 
-- **Project**: bmad.lens.bmad
+- **Project**: bmad.lens.release
 - **User**: CrisWeber
 - **Communication Language**: English
 - **Document Output Language**: English
 - **User Skill Level**: intermediate
-- **Output Folder**: {project-root}/_bmad-output
+- **Output Folder**: bmad.lens.release/_bmad-output
 - **Planning Artifacts**: {project-root}/_bmad-output/planning-artifacts
 - **Implementation Artifacts**: {project-root}/_bmad-output/implementation-artifacts
 - **Project Knowledge**: {project-root}/docs
@@ -19,9 +19,9 @@
 - **Workflow definitions**: `_bmad/bmm/workflows/` (organized by phase)
 - **Core tasks**: `_bmad/core/tasks/` (help, editorial review, indexing, sharding, adversarial review)
 - **Core workflows**: `_bmad/core/workflows/` (brainstorming, party-mode, advanced-elicitation)
-- **Workflow engine**: `_bmad/core/tasks/workflow.xml` (executes YAML-based workflows)
-- **Module configuration**: `_bmad/bmm/config.yaml`
-- **Core configuration**: `_bmad/core/config.yaml`
+- **Workflow engine**: `_bmad/core/tasks/workflow.yaml` (executes YAML-based workflows)
+- **Module configuration**: `_bmad/bmm/bmadconfig.yaml`
+- **Core configuration**: `_bmad/core/bmadconfig.yaml`
 - **Agent manifest**: `_bmad/_config/agent-manifest.csv`
 - **Workflow manifest**: `_bmad/_config/workflow-manifest.csv`
 - **Help manifest**: `_bmad/_config/bmad-help.csv`
@@ -29,10 +29,10 @@
 
 ## Key Conventions
 
-- Always load `_bmad/bmm/config.yaml` before any agent activation or workflow execution
+- Always load `_bmad/bmm/bmadconfig.yaml` before any agent activation or workflow execution
 - Store all config fields as session variables: `{user_name}`, `{communication_language}`, `{output_folder}`, `{planning_artifacts}`, `{implementation_artifacts}`, `{project_knowledge}`
 - MD-based workflows execute directly — load and follow the `.md` file
-- YAML-based workflows require the workflow engine — load `workflow.xml` first, then pass the `.yaml` config
+- YAML-based workflows require the workflow engine — load `workflow.yaml` first, then pass the `.yaml` config
 - Follow step-based workflow execution: load steps JIT, never multiple at once
 - Save outputs after EACH step when using the workflow engine
 - The `{project-root}` variable resolves to the workspace root at runtime
@@ -49,7 +49,7 @@
 | qa | Quinn | QA Engineer | test automation, API testing, E2E testing, coverage analysis |
 | quick-flow-solo-dev | Barry | Quick Flow Solo Dev | rapid spec creation, lean implementation, minimum ceremony |
 | sm | Bob | Scrum Master | sprint planning, story preparation, agile ceremonies, backlog management |
-| tech-writer | Paige | Technical Writer | agent capabilities |
+| tech-writer | Paige | Technical Writer | documentation, Mermaid diagrams, standards compliance, concept explanation |
 | ux-designer | Sally | UX Designer | user research, interaction design, UI patterns, experience strategy |
 
 ## Slash Commands
