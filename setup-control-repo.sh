@@ -330,7 +330,9 @@ resolve_clone_branch() {
     return
   fi
 
-  if git ls-remote --heads "$remote_url" "$preferred_branch" >/dev/null 2>&1; then
+  local branch_heads
+  branch_heads="$(git ls-remote --heads "$remote_url" "$preferred_branch" 2>/dev/null || true)"
+  if [[ -n "$branch_heads" ]]; then
     printf '%s\n' "$preferred_branch"
     return
   fi
