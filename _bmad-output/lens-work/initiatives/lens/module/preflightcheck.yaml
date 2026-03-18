@@ -1,0 +1,8 @@
+initiative: preflightcheck
+scope: feature
+domain: lens
+service: module
+track: hotfix
+language: unknown
+created: "2026-03-18T20:22:35Z"
+initiative_root: lens-module-preflightcheck
