@@ -1,0 +1,8 @@
+# Initiative configuration — committed to git (Service artifact)
+initiative: module
+scope: service
+domain: lens
+service: module
+language: unknown
+created: "2026-03-18T17:43:52Z"
+initiative_root: lens-module
