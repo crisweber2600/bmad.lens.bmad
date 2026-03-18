@@ -1,0 +1,7 @@
+# Initiative configuration — committed to git (Domain 1 artifact)
+initiative: lens
+scope: domain
+domain: lens
+language: unknown           # auto-detected later or user-specified
+created: "2026-03-18T17:38:00Z"
+initiative_root: lens
