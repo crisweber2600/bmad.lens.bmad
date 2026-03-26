@@ -1,0 +1,9 @@
+# Initiative configuration — committed to git (Feature artifact)
+initiative: streamline
+scope: feature
+domain: lens
+service: module
+feature: streamline
+track: full
+initiative_root: lens-module-streamline
+created: "2026-03-26T14:45:00Z"
