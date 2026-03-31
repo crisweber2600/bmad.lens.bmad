@@ -44,12 +44,12 @@ story_location: _bmad-output/implementation-artifacts
 
 development_status:
   # Epic 1: Reliable Initiative State
-  epic-1: in-progress
+  epic-1: done
   1-1-create-lifecycle-yaml-v3-schema: done
-  1-2-create-initiative-state-yaml-schema-and-create-initiative-state-operation: backlog
-  1-3-add-update-initiative-state-family-of-operations: backlog
-  1-4-update-git-state-to-yaml-first-state-reads: backlog
-  1-5-add-lens-version-file-and-preflight-version-guard: backlog
+  1-2-create-initiative-state-yaml-schema-and-create-initiative-state-operation: done
+  1-3-add-update-initiative-state-family-of-operations: done
+  1-4-update-git-state-to-yaml-first-state-reads: done
+  1-5-add-lens-version-file-and-preflight-version-guard: done
   epic-1-retrospective: optional
 
   # Epic 2: Streamlined Branch Topology
