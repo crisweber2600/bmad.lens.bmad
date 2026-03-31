@@ -337,6 +337,25 @@ So that all branch creation follows the milestone model and non-conforming branc
 **And** the `validate-branch-name` precondition checks the proposed branch name against `lifecycle.yaml` milestone token list and FAILS with a clear error if the name is non-conforming
 **And** the old `start-phase` operation is marked deprecated (retained for backward compat but documented as deprecated)
 
+### Story 2.7: Update SprintPlan to Batch-Create All Dev-Story Artifacts Per Epic
+
+As a module dev agent,
+I want `/sprintplan` step-04 to loop over ALL stories in the sprint backlog for the target epic and create dev-story artifacts for each,
+So that `/dev` can discover and implement the complete story set for the epic in a single session.
+
+**Acceptance Criteria:**
+
+**Given** sprint planning (step-03) has produced a sprint backlog for an epic
+**When** step-04 (dev-story creation) executes
+**Then** the dev-story workflow is invoked once per story in the sprint backlog for the target epic
+**And** each story artifact is written to `{bmad_docs}` with the standard dev-story naming pattern
+**And** the sprint-status is updated to mark ALL created stories as `ready-for-dev`
+**And** closeout (step-05) reports the count of dev-story artifacts created
+
+**Given** the sprint backlog contains stories that already have dev-story artifacts
+**When** step-04 iterates the backlog
+**Then** existing artifacts are skipped with a note (no overwrite)
+
 ---
 
 ## Epic 3: Governance Artifact Publication
