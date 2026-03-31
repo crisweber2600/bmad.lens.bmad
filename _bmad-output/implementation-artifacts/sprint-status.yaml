@@ -1,0 +1,89 @@
+# generated: 2026-03-27T00:06:02Z
+# last_updated: 2026-03-27T00:06:02Z
+# project: build-output
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: "2026-03-27T00:06:02Z"
+last_updated: "2026-03-27T00:06:02Z"
+project: build-output
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: Reliable Initiative State
+  epic-1: in-progress
+  1-1-create-lifecycle-yaml-v3-schema: ready-for-dev
+  1-2-create-initiative-state-yaml-schema-and-create-initiative-state-operation: backlog
+  1-3-add-update-initiative-state-family-of-operations: backlog
+  1-4-update-git-state-to-yaml-first-state-reads: backlog
+  1-5-add-lens-version-file-and-preflight-version-guard: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Streamlined Branch Topology
+  epic-2: backlog
+  2-1-update-preplan-workflow-to-milestone-model: backlog
+  2-2-update-businessplan-workflow-to-milestone-model: backlog
+  2-3-update-techplan-workflow-to-milestone-model: backlog
+  2-4-update-devproposal-workflow-to-milestone-model: backlog
+  2-5-update-sprintplan-workflow-to-milestone-model: backlog
+  2-6-update-git-orchestration-for-milestone-branch-operations: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Governance Artifact Publication
+  epic-3: backlog
+  3-1-add-publish-to-governance-operation-to-git-orchestration: backlog
+  3-2-add-governance-publication-step-to-audience-promotion-workflow: backlog
+  3-3-add-governance-dual-read-bootstrapping-to-sensing: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Initiative Lifecycle Closure
+  epic-4: backlog
+  4-1-create-close-router-workflow: backlog
+  4-2-add-update-close-and-tombstone-operations-to-git-orchestration: backlog
+  4-3-filter-closed-initiatives-from-live-sensing-conflict-detection: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Enhanced Cross-Initiative Sensing
+  epic-5: backlog
+  5-1-implement-governance-historical-context-pass-in-sensing: backlog
+  5-2-verify-sensing-graceful-downgrade-works-end-to-end: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Self-Service Module Upgrade
+  epic-6: backlog
+  6-1-add-migrations-section-to-lifecycle-yaml: backlog
+  6-2-create-lens-upgrade-router-workflow: backlog
+  6-3-add-validate-branch-name-precondition-to-git-orchestration-push: backlog
+  epic-6-retrospective: optional
