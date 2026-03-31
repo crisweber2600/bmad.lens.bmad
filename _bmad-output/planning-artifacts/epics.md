@@ -1,7 +1,7 @@
 ---
 stepsCompleted: [step-01-validate-prerequisites, step-02-design-epics, step-03-create-stories, step-04-final-validation]
 inputDocuments:
-  - '_bmad-output/planning-artifacts/prd.md'
+  - '_bmad-output/planning-artifacts/prd-lens-module-streamline-2026-03-26.md'
   - '_bmad-output/planning-artifacts/architecture.md'
   - '_bmad-output/planning-artifacts/tech-decisions.md'
 initiative: lens-module-streamline
@@ -370,7 +370,7 @@ So that every merged milestone PR automatically propagates artifacts to governan
 **When** the promotion workflow closeout logic runs
 **Then** `publish-to-governance` is called with all artifacts from `initiative-state.yaml.artifacts`
 **And** after the push, governance repo has `artifacts/{domain}/{service}/{initiative}/` with all phase artifacts and `_manifest.yaml`
-**And** `initiative-state.yaml` is updated: `last_updated` refreshed, `mileston` confirmed
+**And** `initiative-state.yaml` is updated: `last_updated` refreshed, `milestone` confirmed
 
 ### Story 3.3: Add Governance Dual-Read Bootstrapping to `sensing.md`
 

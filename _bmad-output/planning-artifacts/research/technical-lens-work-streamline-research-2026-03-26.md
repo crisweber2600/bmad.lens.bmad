@@ -25,7 +25,7 @@ source_verification: 'codebase-analysis — internal subject only'
 Six technical questions were surfaced by domain research and brainstorming. This document evaluates each against the existing codebase to produce concrete implementation recommendations. The headline conclusions:
 
 1. **`git show remote:path` is already the primary cross-repo read pattern** — the abstraction exists; extending it to governance artifacts requires only a path contract and auth agreement, not a new mechanism.
-2. **Commit message tagging (`[PHASE:X]`) is superior to git tags for phase markers** — tags are mutable and require a separate tag push; commit messages are immutable, already in use via the `[PHASE]` prefix, and `git log --grep` is zero-cost.
+2. **Commit message tagging (`[PHASE:X]`) is superior to git tags for phase markers** — tags are mutable and require a separate tag push; commit messages are immutable, already in use via the `[PHASE]` prefix, and `git log --grep` performs a straightforward linear scan over history (O(N)), which is acceptable for our expected repository sizes.
 3. **Audience-as-milestone is a complete naming model replacement** — it eliminates the phase-branch layer entirely; `lifecycle.yaml` audience tokens (`small`, `medium`, `large`, `base`) simply get renamed to work-type phase milestones (`techplan`, `devproposal`, `sprintplan`, `dev-ready`).
 4. **Branch name validation belongs in `git-orchestration`** — not in hooks; hooks require out-of-band installation; `git-orchestration` is already the sole creation point.
 5. **YAML schema migration via `schema_version` in `lifecycle.yaml` is the correct pattern** — `lifecycle.yaml` already has `schema_version: 2`; extending this with migration descriptors follows the same approach used by Helm chartbooks and kustomize manifests.
@@ -62,7 +62,7 @@ git show "${ROOT}:_bmad-output/lens-work/initiatives/${DOMAIN}/${SERVICE}/${FEAT
 git show governance:constitutions/{level}/constitution.yaml
 ```
 
-The `governance` remote is expected to be configured in the control repo at setup. This is documented in `setup-control-repo.sh`.
+`setup-control-repo.sh` currently clones the governance repository as a sibling of the control repo and does not add a `governance` remote by default. To use the `git show governance:…` form, teams should add a `governance` remote in the control repo (for example: `git remote add governance <governance-repo-url>`).
 
 ### Extending to Governance Artifacts
 
@@ -80,9 +80,9 @@ governance:artifacts/{domain}/{service}/{initiative}/{phase}/{artifact}.md
 
 **Authentication model:** Both SSH and HTTPS work identically for `git show` — it uses the same remote transport that `git fetch` uses. The `governance` remote must have read access from any control repo consumer.
 
-**Performance:** `git show` on a remote path requires no `git fetch`. It reads the specified ref from the remote directly. For artifact reads at sensing time, this is O(1) per artifact — no clone, no checkout.
+**Performance:** `git show governance:<path>` resolves against locally available refs (for example, `refs/remotes/governance/HEAD`) and does not itself contact the remote. For artifact reads at sensing time, this is O(1) per artifact — no clone, no checkout — assuming the remote-tracking refs are already up to date.
 
-**Caching consideration:** `git show` reads the remote's current HEAD at time-of-call. If stale reads are acceptable (sensing), no cache is needed. If freshness is critical (phase gate), a `git fetch governance` before the read is sufficient.
+**Caching consideration:** `git show` reads the locally cached view of the remote (such as `governance/HEAD`) at time-of-call, which may be stale if you have not run `git fetch` recently. If stale reads are acceptable (sensing), no additional step is needed. If freshness is critical (phase gate), run `git fetch governance` (or otherwise update the local refs) immediately before the read.
 
 ### Technical Verdict
 

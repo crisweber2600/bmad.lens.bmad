@@ -4,7 +4,7 @@ phase: devproposal
 date: 2026-03-26
 author: '@lens'
 inputDocuments:
-  - '_bmad-output/planning-artifacts/prd.md'
+  - '_bmad-output/planning-artifacts/prd-lens-module-streamline-2026-03-26.md'
   - '_bmad-output/planning-artifacts/architecture.md'
   - '_bmad-output/planning-artifacts/epics.md'
   - '_bmad-output/planning-artifacts/stories.md'
