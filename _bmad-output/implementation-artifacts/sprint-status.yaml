@@ -44,7 +44,7 @@ story_location: _bmad-output/implementation-artifacts
 development_status:
   # Epic 1: Reliable Initiative State
   epic-1: in-progress
-  1-1-create-lifecycle-yaml-v3-schema: ready-for-dev
+  1-1-create-lifecycle-yaml-v3-schema: done
   1-2-create-initiative-state-yaml-schema-and-create-initiative-state-operation: backlog
   1-3-add-update-initiative-state-family-of-operations: backlog
   1-4-update-git-state-to-yaml-first-state-reads: backlog
