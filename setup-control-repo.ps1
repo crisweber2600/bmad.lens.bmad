@@ -437,3 +437,12 @@ Write-Host 'For non-Copilot IDEs, run the module installer:'
 Write-Host '  .\_bmad\lens-work\scripts\install.ps1 -IDE cursor' -ForegroundColor Cyan
 Write-Host '  .\_bmad\lens-work\scripts\install.ps1 -AllIDEs' -ForegroundColor Cyan
 Write-Host ""
+Write-Host "Next Steps" -ForegroundColor White
+Write-Host ""
+Write-Host "  1. Open this repo in your IDE and start a chat with @lens" -ForegroundColor Cyan
+Write-Host "  2. Type /onboard to register yourself and configure the workspace"
+Write-Host "  3. Type /init to create your first initiative"
+Write-Host ""
+Write-Host "New to LENS? Read the getting started guide:"
+Write-Host '  .\_bmad\lens-work\docs\GETTING-STARTED.md' -ForegroundColor Cyan
+Write-Host ""
